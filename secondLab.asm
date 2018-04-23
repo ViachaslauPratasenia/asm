@@ -1,191 +1,280 @@
+; multi-segment executable file template.
 .model small
-.stack 100h
 .data
+    errorMsg db "ERROR",13,10,"$"
+    nextString db 13,10,'$'
+    firstBaseInput db "Input first base in hex",13,10,'$'  
+    secondBaseInput db "Input second base in hex",13,10,'$' 
+    inputNumber db "Input number",13,10,'$'
+    outputResult db "Your result",13,10,'$'
+    table db '0123456789ABCDEF'   
 
-first dw 0
-second dw 0
-input_first db 'Input first number in hex : $'
-input_second db 'Input second number in hex : $'
-new_str db 0dh,0ah,'$' 
-xor_mes db 'XOR $'
-not_mes db 'NOT first number $'
-and_mes db 'AND $'
-or_mes db 'OR $' 
-result_mes db 'result : $' 
-ccc db 'chisla in hex : $'
+    number db 40
+    lenNumber db 0
+    strNumber db 38 dup("$") ;
+  
+    firstBase db 40  
+    lenghtFirstBase db 0
+    stringFirstBase db 38 dup("$") ;
+        
+    secondBase db 40
+    lenghtSecondBase db 0
+    stringSecondBase db 38  dup("$");
+                                                                              
+    result db 40  
+    lenResult db 0
+    strResult db 38 dup(0),"$" ;                                                                          
+  
+ 
+ends
+
+.stack
+    dw   128  dup(0)
+ends
+
 .code
-start: 
-mov ax,@data
-mov ds,ax
-mov ah,09h
-lea dx,input_first
-int 21h
-call read_number
-mov first,dx
-call newStr
- 
-lea dx,input_second
-int 21h
-call read_number
-mov second,dx
-call newStr
+start:
+; set segment registers:
+    mov ax, @data
+    mov ds, ax
+    mov es, ax
+
+     
+    lea dx,firstBaseInput    ;"Input first base"
+    call output
+
+
+    lea dx,firstBase
+    call input
+
+    lea dx,nextString  
+    call output
+
+
+    lea dx,secondBaseInput         ;"Input second base"
+    call output 
+
+    lea dx,secondBase
+    call input 
+     
+    lea dx,nextString  
+    call output
+         
+   
+    lea dx,inputNumber
+    call output
+    
+    lea dx,number
+    call input 
+    
+    call Base1ToInt    
+    
+    call Base2ToInt
+
+    call transferNumToTen
+    
+    call transferNumToBase2  
+    
+    lea dx,nextString  
+    call output
+    
+    lea dx,outputResult
+    call output
+   
+    lea dx,result
+    call output
+    
+  exit:
+    mov ax, 4ch ; exit to operating system.
+    int 21h    
+ends    
+
+    output PROC
+    mov ah,9h
+    int 21h
+    ret
+    output ENDP 
+    
+    input PROC
+    mov ah,0Ah
+    int 21h
+    ret
+    input ENDP
        
-call load_numbers
-xor ax,dx
-lea dx,xor_mes
-call print_result
-
-
-call load_numbers
-not ax
-lea dx,not_mes
-call print_result
-
-
-call load_numbers
-and ax,dx
-lea dx,and_mes
-call print_result
-
-
-call load_numbers
-or ax,dx
-lea dx,or_mes
-call print_result
-
-mov ah,4ch
-int 21h 
-
-load_numbers proc
-    mov ax,first
-    mov dx,second
-    ret
-load_numbers endp
-
-
-check_input proc
     
-    push bx
-    push dx
-    push ax
-    xor bx,bx 
     
-    mov ax,0300h
-    int 10h 
-    pop ax 
+    Base1ToInt proc  ;FromSystem  
+        xor ax,ax
+        xor bx,bx
+        xor cx,cx  
+        xor di,di
+        mov cl,lenghtFirstBase  
+        mov si,cx
+        mov cl,10     
+        l1:
+        mov bl,stringFirstBase[di]
+        sub bl,'0'
+        jb error1
+        cmp bl,9
+        ja error1 
+        mul cx
+        add ax,bx
+        inc di
+        cmp di,si
+        jne l1        
+        mov es,ax     ;first base to es
+        ret
+             
+        error1: 
+         lea dx,nextString  
+         call output
+         
+         lea dx,errorMsg
+         call output
+         jmp exit
+         ret                    
+    Base1ToInt endp  
     
-
-    cmp ax,0000h  ;<0
-    jl del
-    cmp si,0000h  ;if namber
-    je exit 
-    cmp si,0100h  ;if big letters
-    je s
-    cmp si,0101h   ;if little letter
-    je s
-    jmp sq
-s:
-    cmp ax,000Ah     ; if less than the first letter
-    jl del
-sq: 
-    cmp ax,000Fh       ; for everyone if >f
-    ja del
-
+    Base2ToInt proc
+        xor ax,ax
+        xor bx,bx
+        xor cx,cx  
+        xor di,di      
+        mov cl,lenghtSecondBase  
+        mov si,cx
+        mov cl,10     
+        l2:
+        mov bl,stringSecondBase[di]
+        sub bl,'0'
+        jb error2
+        cmp bl,9
+        ja error2 
+        mul cx
+        add ax,bx
+        inc di
+        cmp di,si
+        jne l2        
+        mov bp,ax     ;second base to ds
+        ret
+             
+        error2:
+        lea dx,nextString  
+        call output
+         
+        lea dx,errorMsg
+        call output
+        jmp exit
+        ret                    
+     Base2ToInt endp 
     
-    mov si,0001h   ; if no errors
-    jmp exit
-del:                      ;delete entered simbol
-    push ax
-    mov si,0000h         ; for error code
-    dec dx              ;  return pointer 1 simbol less
-    mov ax,0200h        ;pointer to dx
-    int 10h
-    push dx
-    mov dx,0020h       ; instead of wrong simbol '_'
-    int 21h
-    pop dx
-    int 10h
-    pop ax
-exit:
-    pop dx
-    pop bx
-    ret
-check_input endp
-
-read_number proc
-    xor dx,dx
-    mov bl,10h
-l1:
-    mov ah,01h
-    int 21h
+       transferNumToTen proc  
     
-    cmp al,0dh        ; if 'enter'
-    je end_of_input
-    mov si,0000h
-    sub ax,0130h    ;ah minus command, al minus '0'    
-    cmp ax,0009h
-    jl n
-    sub ax,0007h          ;for big letters
-    mov si,0100h
-    cmp ax,000Fh
-    jl n
-    sub ax,0020h           ; for little letters
-    mov si,0101h
-    n:
-    call check_input
-    cmp si,0000h
-    ;je l1
-    mov si,ax
-    mov ax,dx
-    mul bl
-    mov dx,ax
-    add dx,si
-    loop l1
-end_of_input:
-    ret
-read_number endp
-
-print_result proc
-    push ax
-    mov ah,09h
-    int 21h
-    lea dx,result_mes
-    int 21h
-    mov bx,10h    ;zadaem sistemu schislenija
-    pop ax
-    call convert
-    call newStr
-    ret
-print_result endp    
+        xor ax,ax
+        xor bx,bx
+        xor cx,cx  
+        xor di,di     
+        mov cl,lenNumber
+        mov si,cx
+        mov cx,es 
+        dec cx
+        mov es,cx
+        inc cx   
+        l3:
+        mov bl,strNumber[di]
+        sub bl,'0'
+        jb error3
+      
+        cmp bl,11h
+        je A   
+        
+        cmp bl,12h
+        je B  
+        
+        cmp bl,13h
+        je C
+     
+        cmp bl,14h
+        je D
  
- 
-convert proc   ;pered call bx - zadat' ss
-    xor cx,cx
-again:
-    xor dx,dx
-    div bx
-    inc cx
-    push dx
-    cmp ax,0
-    jne again 
-    mov ah,02h
-output:
-    pop dx
-    add dx,30h
+        cmp bl,15h
+        je E
+  
+        cmp bl,16h
+        je F
+         
+        K:
+        mov dx,es
+        sub dx,bx
+        jb error3 
+        
+        mul cx
+        add ax,bx
+        inc di
+        cmp di,si
+        jne l3        
+        mov es,ax     ;second base to ds
+        ret
+        A:
+        mov bl, 0Ah
+        jmp K
+        B:
+        mov bl,0Bh
+        jmp K
+        C:
+        mov bl,0Ch
+        jmp K
+        D:
+        mov bl,0Dh
+        jmp K
+        E:
+        mov bl,0Eh
+        jmp K
+        F:
+        mov bl,0Fh
+        jmp K
+              
+        error3:
+         lea dx,nextString  
+        call output
+         
+         lea dx,errorMsg
+         call output  
+         jmp exit
+        ret 
     
-    cmp dx,39h
-    jle no_more_nine
-    add dx,7
-no_more_nine:
-    int 21h
-    loop output    
-    ret
-convert endp
+      transferNumToTen endp
+     
+      transferNumToBase2 proc  
+    
+        xor ax,ax
+        xor bx,bx
+        xor cx,cx 
+        xor di,di
 
-newStr proc
-    mov ah,09h
-    lea dx,new_str
-    int 21h
-    ret
-newStr endp
-end start
+        ;xor di,di
+        mov di,offset result+15  
+
+        mov ax,es         
+        mov cx,bp
+        l4:
+        xor dx,dx
+        mov si,offset table
+        div cx      ;ostatok v dx
+        add si,dx
+        mov dl,[si]
+        mov [di],dl 
+        
+        dec di
+        cmp ax,0   
+        jne l4     
+        mov dx,di
+        ret     
+        error4:
+        lea dx,errorMsg
+        call output  
+        jmp exit
+        ret   
+    transferNumToBase2 endp 
+    
+
+end start ; set entry point and stop the assembler.
